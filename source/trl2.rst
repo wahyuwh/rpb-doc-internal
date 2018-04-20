@@ -89,6 +89,10 @@ Setup the database for Conquest
   ALTER USER conquest WITH PASSWORD 'xxxxxxxxx';
   \q
 
+Restart PostgreSQL 9.5 service
+
+.. code-block:: bash
+
   systemctl restart postgresql-9.5.service
   systemctl status postgresql-9.5.service
 
