@@ -353,7 +353,7 @@ Start Tomcat and another folder will be created too with a new ``datainfo.proper
 
   systemctl start tomcat.service
 
-Test connection to OpenClinica
+Test connection to OpenClinica Web Service
 
 .. code-block:: bash
 
