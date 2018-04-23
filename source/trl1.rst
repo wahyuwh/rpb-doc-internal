@@ -280,7 +280,81 @@ Edit ``datainfo.properties`` file
   db=openclinica
   dbPort=5432
   dbHost=localhost
+
   filePath=${catalina.home}/${WEBAPP.lower}.data/
+
   sysURL=http://localhost:8080/${WEBAPP}/MainMenu
 
-  
+  log.dir=${catalina.home}/logs/openclinica
+  logLocation=local
+
+  logLevel=info
+  syslog.host=localhost
+  syslog.port=514
+
+Start tomcat and depends on the ``filePath`` parameter, a folder will be created that contains a new ``datainfo.properties``. Subsequent changes on the settings must be performed on this file.
+
+.. code-block:: bash
+
+  systemctl start tomcat.service
+
+Test connection to OpenClinica
+
+.. code-block:: bash
+
+  links 127.0.0.1:8080/OpenClinica/MainMenu
+
+OpenClinica Web Service
+-----------------------
+
+The procedure is the same like installing OpenClinica
+
+We go to the install folder and unzip OpenClinica war file
+
+.. code-block:: bash
+
+  systemctl stop tomcat.service
+
+.. code-block:: bash
+
+  cd /usr/local/oc/install
+  unzip OpenClinica-ws.war -d OpenClinica-ws
+  mv OpenClinica-ws /usr/local/tomcat/webapps
+
+Edit ``datainfo.properties`` file
+
+.. code-block:: bash
+
+  vim /usr/local/tomcat/webapps/OpenClinica-ws/WEB-INF/classes/datainfo.properties
+
+.. code-block:: bash
+
+  dbType=postgres
+  dbUser=clinica
+  dbPass=xxxxxxxxx
+  db=openclinica
+  dbPort=5432
+  dbHost=localhost
+
+  filePath=${catalina.home}/${WEBAPP.lower}.data/
+
+  sysURL=http://localhost:8080/${WEBAPP}/MainMenu
+
+  log.dir=${catalina.home}/logs/openclinica
+  logLocation=local
+
+  logLevel=info
+  syslog.host=localhost
+  syslog.port=514
+
+Start Tomcat and another folder will be created too with a new ``datainfo.properties`` file.
+
+.. code-block:: bash
+
+  systemctl start tomcat.service
+
+Test connection to OpenClinica
+
+.. code-block:: bash
+
+  links 127.0.0.1:8080/OpenClinica-ws/MainMenu
