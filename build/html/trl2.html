@@ -1,0 +1,562 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>PACS Conquest &#8212; rpb-doc-internal 1 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="OpenClinica" href="trl1.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="pacs-conquest">
+<h1>PACS Conquest<a class="headerlink" href="#pacs-conquest" title="Permalink to this headline">¶</a></h1>
+<p>This article documents the installation of PACS Conquest. Conquest is an open source project for PACS. In the RadPlanBio project, Conquest is used as the DICOM server component.</p>
+<p>To begin with, login as root (<code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">su</span></code>). Perform <code class="docutils literal notranslate"><span class="pre">yum</span> <span class="pre">update</span></code>. Install some support packages such as yum-plugin-remove-with-leaves, links, bash-completion, net-tools, unzip, wget, vim, mlocate, epel-release, lsof, bzip2 and gcc.</p>
+<div class="section" id="configurations-for-dicom-server">
+<h2>Configurations for DICOM server<a class="headerlink" href="#configurations-for-dicom-server" title="Permalink to this headline">¶</a></h2>
+<table border="1" class="docutils">
+<colgroup>
+<col width="31%" />
+<col width="19%" />
+<col width="26%" />
+<col width="24%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">OS</th>
+<th class="head">Init</th>
+<th class="head">Server</th>
+<th class="head">Database</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>CentOS 7</td>
+<td><code class="docutils literal notranslate"><span class="pre">systemd</span></code></td>
+<td>Apache2</td>
+<td>PostgreSQL 9.5</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="database">
+<h2>Database<a class="headerlink" href="#database" title="Permalink to this headline">¶</a></h2>
+<p>For database PostgreSQL 9.5, the installation steps is as follows</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>yum install https://download.postgresql.org/pub/repos/yum/9.5/redhat/rhel-7-x86_64/pgdg-centos95-9.5-3.noarch.rpm
+yum install postgresql95 postgresql95-server postgresql95-contrib postgresql95-docs
+/usr/pgsql-9.5/bin/postgresql95-setup initdb
+</pre></div>
+</div>
+<p>Edit <code class="docutils literal notranslate"><span class="pre">postgresql.conf</span></code></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cp /var/lib/pgsql/9.5/data/postgresql.conf /var/lib/pgsql/9.5/data/postgresql.conf.BAK
+vim /var/lib/pgsql/9.5/data/postgresql.conf
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>listen <span class="nv">addresses</span> <span class="o">=</span> <span class="s1">&#39;*&#39;</span>
+<span class="nv">port</span> <span class="o">=</span> <span class="m">5432</span>
+</pre></div>
+</div>
+<p>Enable init script</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>systemctl <span class="nb">enable</span> postgresql-9.5.service
+systemctl start postgresql-9.5
+systemctl status postgresql-9.5.service
+</pre></div>
+</div>
+<p>Create symlink to <code class="docutils literal notranslate"><span class="pre">/opt/PostgreSQL</span></code></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mkdir /opt/PostgreSQL
+ln -s /usr/pgsql-9.5 /opt/PostgreSQL/9.5
+ln -s /var/lib/pgsql/9.5/data /opt/PostgreSQL/9.5/data
+</pre></div>
+</div>
+<p>Assign password to user postgres</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>su postgres
+psql
+
+ALTER USER postgres PASSWORD <span class="s1">&#39;xxxxxxxxx&#39;</span><span class="p">;</span>
+<span class="se">\q</span>
+
+<span class="nb">exit</span>
+</pre></div>
+</div>
+<p>Edit authentication method to access database by editing <code class="docutils literal notranslate"><span class="pre">pg_hba.conf</span></code></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cp /var/lib/pgsql/9.5/data/pg_hba.conf /var/lib/pgsql/9.5/data/pg_hba.conf.BAK
+vim /var/lib/pgsql/9.5/data/pg_hba.conf
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># TYPE  DATABASE        USER            ADDRESS                 METHOD</span>
+<span class="nb">local</span>   all             all                                     md5
+host    all             all             <span class="m">127</span>.0.0.1/32            md5
+</pre></div>
+</div>
+<p>Setup the database for Conquest</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>psql -U postgres -c <span class="s2">&quot;CREATE ROLE conquest LOGIN ENCRYPTED PASSWORD &#39;xxxxxxxxx&#39; SUPERUSER NOINHERIT NOCREATEDB NOCREATEROLE&quot;</span>
+psql -U postgres -c <span class="s2">&quot;CREATE DATABASE conquest WITH ENCODING=&#39;UTF8&#39; OWNER=conquest&quot;</span>
+psql -U postgres
+
+ALTER USER conquest WITH PASSWORD <span class="s1">&#39;xxxxxxxxx&#39;</span><span class="p">;</span>
+<span class="se">\q</span>
+</pre></div>
+</div>
+<p>Restart PostgreSQL 9.5 service</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>systemctl restart postgresql-9.5.service
+systemctl status postgresql-9.5.service
+</pre></div>
+</div>
+</div>
+<div class="section" id="web-server">
+<h2>Web Server<a class="headerlink" href="#web-server" title="Permalink to this headline">¶</a></h2>
+<p>Install Apache2 via yum</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>yum install httpd
+rm -f /etc/httpd/conf.d/welcome.conf
+</pre></div>
+</div>
+<p>Edit <code class="docutils literal notranslate"><span class="pre">httpd.conf</span></code></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cp /etc/httpd/conf/httpd.conf /etc/httpd/conf/httpd.conf.BAK
+vim /etc/httpd/conf/httpd.conf
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ServerAdmin admin@domain.de
+ServerName hostname.domain.de:80
+
+&lt;IfModule dir_module&gt;
+  DirectoryIndex index.html index.htm
+&lt;/IfModule&gt;
+</pre></div>
+</div>
+<p>Test syntax and enable init service</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>apachectl configtest
+systemctl <span class="nb">enable</span> httpd.service
+systemctl start httpd.service
+systemctl status httpd.service
+</pre></div>
+</div>
+<p>Enable CGI and manage SELinux*</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>yum install policycoreutils-python
+setsebool -P httpd_enable_cgi <span class="m">1</span>
+semanage fcontext -a -t httpd_sys_script_exec_t /var/www/cgi-bin
+restorecon -Rv /var/www/cgi-bin
+systemctl restart httpd.service
+systemctl status httpd.service
+</pre></div>
+</div>
+<p>Additionally if wanting to test CGI with perl or ruby script</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>yum install perl perl-CGI ruby
+</pre></div>
+</div>
+</div>
+<div class="section" id="compiling-the-dicom-server">
+<h2>Compiling the DICOM server<a class="headerlink" href="#compiling-the-dicom-server" title="Permalink to this headline">¶</a></h2>
+<p>Start by installing required packages</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>yum install gcc-c++ gcc-c++-sh-linux-gnu clang
+</pre></div>
+</div>
+<p>Create an install folder</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mkdir /usr/local/pacs/install
+</pre></div>
+</div>
+<p>Download dicomserver1419b.zip from <a class="reference external" href="https://ingenium.home.xs4all.nl/dicom.html">https://ingenium.home.xs4all.nl/dicom.html</a> and save to install folder.</p>
+<p>Unzip the zip file</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>unzip /usr/local/pacs/install/dicomserver1419b.zip -d /usr/local/pacs/dicomserver1419b
+</pre></div>
+</div>
+<p>Create symlink to <code class="docutils literal notranslate"><span class="pre">/opt</span></code></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ln -s /usr/local/pacs/dicomserver1419b/distribution /opt/conquest-14-19b
+</pre></div>
+</div>
+<p>Create folder for incoming DICOM data</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mkdir /opt/conquest-14-19b/data/incoming
+</pre></div>
+</div>
+<p>Create user and group <code class="docutils literal notranslate"><span class="pre">conquest</span></code></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>groupadd conquest
+useradd -g conquest conquest
+</pre></div>
+</div>
+<p>Remove shell login for user <code class="docutils literal notranslate"><span class="pre">conquest</span></code></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>vim /etc/passwd
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>conquest:x:1000:1000::/home/conquest:/bin/false
+</pre></div>
+</div>
+<p>Change ownership and set permission</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>chown -R conquest:conquest /usr/local/pacs/dicomserver1419b
+chown -R conquest:conquest /opt/conquest-14-19b
+chmod g+w /opt/conquest-14-19b/data/incoming
+</pre></div>
+</div>
+<p>Prepare for compiling source code</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ln -s /usr/pgsql-9.5/lib/libpq.so.5 /usr/lib/libpq.so
+mkdir /usr/local/man
+mkdir /usr/local/man/man1
+</pre></div>
+</div>
+<p>Edit the <code class="docutils literal notranslate"><span class="pre">total.cpp</span></code> file to move <code class="docutils literal notranslate"><span class="pre">aaac.cxx</span></code> on top <code class="docutils literal notranslate"><span class="pre">qrsop.cxx</span></code>. Uncomment the line below <code class="docutils literal notranslate"><span class="pre">aarj.cxx</span></code> so <code class="docutils literal notranslate"><span class="pre">aaac.cxx</span></code> will be read first sequentially and will not be compiled twice. This is because the function min() that is required to compile <code class="docutils literal notranslate"><span class="pre">qrsop.cxx</span></code> is defined in <code class="docutils literal notranslate"><span class="pre">aaac.cxx</span></code>.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span> /opt/conquest-14-19b/src/dgate/src
+vim total.cpp
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1">#include &quot;aaac.cxx&quot;</span>
+<span class="c1">#include &quot;qrsop.cxx&quot;</span>
+
+<span class="c1">#include &quot;aarj.cxx&quot;</span>
+//#include <span class="s2">&quot;aaac.cxx&quot;</span>
+</pre></div>
+</div>
+<p>Edit/create new compile script</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span> /opt/conquest-14-19b
+cp maklinux maklinux.BAK
+chmod <span class="m">755</span> maklinux
+vim maklinux
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="ch">#!/bin/bash</span>
+
+<span class="nv">SRC</span><span class="o">=</span>./src/dgate<span class="p">;</span>
+<span class="nv">CONF</span><span class="o">=</span>./linux/conf<span class="p">;</span>
+<span class="nv">LINUX</span><span class="o">=</span>./linux<span class="p">;</span>
+
+chmod <span class="m">777</span> src/dgate/jpeg-6c/configure
+<span class="nb">cd</span> src/dgate/jpeg-6c
+./configure
+make
+sudo make install
+<span class="nb">cd</span> ../../..
+
+<span class="nb">export</span> <span class="nv">LD_LIBRARY_PATH</span><span class="o">=</span><span class="s2">&quot;/usr/pgsql-9.5/lib/&quot;</span><span class="p">;</span>
+gcc -o <span class="nv">$SRC</span>/lua.o -c <span class="nv">$SRC</span>/lua_5.1.5/all.c -I<span class="nv">$SRC</span>/lua_5.1.5 -DLUA_USE_DLOPEN -DLUA_USE_POSIX<span class="p">;</span>
+g++ -std<span class="o">=</span>c++11 -o <span class="nv">$SRC</span>/charls.o -c <span class="nv">$SRC</span>/charls/all.cpp -I<span class="nv">$SRC</span>/charls
+gcc -o <span class="nv">$SRC</span>/openjpeg.o -c <span class="nv">$SRC</span>/openjpeg/all.c -I<span class="nv">$SRC</span>/openjpeg
+
+g++ -std<span class="o">=</span>c++11 -I/usr/pgsql-9.5/include/ -DUNIX -DNATIVE_ENDIAN<span class="o">=</span><span class="m">1</span> -DHAVE_LIBJPEG -DPOSTGRES -DHAVE_LIBCHARLS -DHAVE_LIBOPENJPEG2 -Wno-write-strings <span class="nv">$SRC</span>/lua.o <span class="nv">$SRC</span>/charls.o <span class="nv">$SRC</span>/openjpeg.o -o dgate -lpthread -ldl -I<span class="nv">$SRC</span>/src <span class="nv">$SRC</span>/src/total.cpp -I<span class="nv">$SRC</span>/dicomlib -L/usr/pgsql-9.5/lib/ -lpq  -ljpeg -I<span class="nv">$SRC</span>/jpeg-6c -L<span class="nv">$SRC</span>/jpeg-6c -I<span class="nv">$SRC</span>/lua_5.1.5 -I<span class="nv">$SRC</span>/openjpeg -I<span class="nv">$SRC</span>/charls -Wno-multichar<span class="p">;</span>
+
+rm <span class="nv">$SRC</span>/lua.o<span class="p">;</span>
+rm <span class="nv">$SRC</span>/charls.o<span class="p">;</span>
+rm <span class="nv">$SRC</span>/openjpeg.o<span class="p">;</span>
+
+pkill -9 dgate<span class="p">;</span>
+sleep <span class="m">0</span>.2s<span class="p">;</span>
+
+cp <span class="nv">$CONF</span>/dicom.ini.postgres dicom.ini<span class="p">;</span>
+cp <span class="nv">$CONF</span>/dicom.sql.postgres dicom.sql<span class="p">;</span>
+
+cp <span class="nv">$LINUX</span>/acrnema.map acrnema.map<span class="p">;</span>
+cp <span class="nv">$LINUX</span>/dgatesop.lst dgatesop.lst<span class="p">;</span>
+
+cp /opt/conquest-14-19b/dgate /var/www/cgi-bin/dgate <span class="p">;</span>
+cp /opt/conquest-14-19b/dicom.sql /var/www/cgi-bin/dicom.sql <span class="p">;</span>
+cp /opt/conquest-14-19b/acrnema.map /var/www/cgi-bin/acrnema.map <span class="p">;</span>
+
+cp -r /opt/conquest-14-19b/webserver/cgi-bin/* /var/www/cgi-bin<span class="p">;</span>
+cp -r /opt/conquest-14-19b/webserver/cgi-bin/.lua /var/www/cgi-bin<span class="p">;</span>
+cp -r /opt/conquest-14-19b/webserver/cgi-bin/.lua.linux /var/www/cgi-bin<span class="p">;</span>
+
+cp /var/www/cgi-bin/dicom.ini.linux /var/www/cgi-bin/dicom.ini<span class="p">;</span>
+cp /var/www/cgi-bin/newweb/dicom.ini.linux /var/www/cgi-bin/newweb/dicom.ini<span class="p">;</span>
+cp /var/www/cgi-bin/.lua.linux /var/www/cgi-bin/.lua<span class="p">;</span>
+
+cp /opt/conquest-14-19b/dgate /var/www/cgi-bin/newweb/dgate <span class="p">;</span>
+cp /opt/conquest-14-19b/acrnema.map /var/www/cgi-bin/newweb/acrnema.map <span class="p">;</span>
+
+cp -r /opt/conquest-14-19b/webserver/htdocs/* /var/www<span class="p">;</span>
+cp -r /opt/conquest-14-19b/webserver/htdocs/* /var/www/html<span class="p">;</span>
+
+mkdir /opt/conquest-14-19b/logs
+chown -R conquest:conquest /opt/conquest-14-19b/
+</pre></div>
+</div>
+<p>Run the compile script</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>/opt/conquest-14-19b/maklinux
+</pre></div>
+</div>
+<p>If everything is right, on CentOS 7, compilation will run smooth with some warnings that can be ignored.</p>
+</div>
+<div class="section" id="setting-the-dicom-server">
+<h2>Setting the DICOM server<a class="headerlink" href="#setting-the-dicom-server" title="Permalink to this headline">¶</a></h2>
+<p>After finish with installation of the DICOM server, the next step is to have the correct settings.</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="34%" />
+<col width="66%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">File</th>
+<th class="head">Path</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>dicom.ini</td>
+<td><p class="first">/opt/conquest-14-19b/dicom.ini</p>
+<p>/var/www/cgi-bin/dicom.ini</p>
+<p class="last">/var/www/cgi-bin/newweb/dicom.ini</p>
+</td>
+</tr>
+<tr class="row-odd"><td>acrnema.map</td>
+<td><p class="first">/opt/conquest-14-19b/acrnema.map</p>
+<p>/var/www/cgi-bin/acrnema.map</p>
+<p class="last">/var/www/cgi-bin/newweb/acrnema.map</p>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="section" id="edit-dicom-ini">
+<h3>Edit dicom.ini<a class="headerlink" href="#edit-dicom-ini" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>vim /opt/conquest-14-19b/dicom.ini
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="o">[</span>sscscp<span class="o">]</span>
+<span class="nv">MicroPACS</span>                <span class="o">=</span> sscscp
+
+<span class="c1"># Network configuration: server name and TCP/IP port#</span>
+<span class="nv">MyACRNema</span>                <span class="o">=</span> NNNNNNNN
+<span class="nv">TCPPort</span>                  <span class="o">=</span> <span class="m">5678</span>
+
+<span class="c1"># Host for postgres or mysql only, name, username and password for database</span>
+<span class="nv">SQLHost</span>                  <span class="o">=</span> localhost
+<span class="nv">SQLServer</span>                <span class="o">=</span> conquest
+<span class="nv">Username</span>                 <span class="o">=</span> conquest
+<span class="nv">Password</span>                 <span class="o">=</span> xxxxxxxxx
+<span class="nv">PostGres</span>                 <span class="o">=</span> <span class="m">1</span>
+<span class="nv">MySQL</span>                    <span class="o">=</span> <span class="m">0</span>
+<span class="nv">SQLite</span>                   <span class="o">=</span> <span class="m">0</span>
+<span class="nv">DoubleBackSlashToDB</span>      <span class="o">=</span> <span class="m">1</span>
+<span class="nv">UseEscapeStringConstants</span> <span class="o">=</span> <span class="m">1</span>
+
+<span class="c1"># Configure server</span>
+<span class="nv">ImportExportDragAndDrop</span>  <span class="o">=</span> <span class="m">1</span>
+<span class="nv">ZipTime</span>                  <span class="o">=</span> <span class="m">05</span>:
+<span class="nv">UIDPrefix</span>                <span class="o">=</span> <span class="m">99999</span>.99999
+<span class="nv">EnableComputedFields</span>     <span class="o">=</span> <span class="m">1</span>
+
+<span class="nv">FileNameSyntax</span>           <span class="o">=</span> <span class="m">4</span>
+
+<span class="c1"># Configuration of compression for incoming images and archival</span>
+<span class="nv">DroppedFileCompression</span>   <span class="o">=</span> un
+<span class="nv">IncomingCompression</span>      <span class="o">=</span> un
+<span class="nv">ArchiveCompression</span>       <span class="o">=</span> as
+
+<span class="c1"># For debug information</span>
+<span class="nv">PACSName</span>                 <span class="o">=</span> NNNNNNNN
+<span class="nv">OperatorConsole</span>          <span class="o">=</span> <span class="m">127</span>.0.0.1
+<span class="nv">DebugLevel</span>               <span class="o">=</span> <span class="m">0</span>
+
+<span class="c1"># Configuration of disk(s) to store images</span>
+<span class="nv">MAGDeviceFullThreshold</span>   <span class="o">=</span> <span class="m">30</span>
+<span class="nv">MAGDevices</span>               <span class="o">=</span> <span class="m">1</span>
+<span class="nv">MAGDevice0</span>               <span class="o">=</span> /opt/conquest-14-19b/data/
+
+<span class="c1"># Files to store logs</span>
+<span class="nv">StatusLog</span> <span class="o">=</span> /opt/conquest-14-19b/logs/serverstatus.log
+<span class="nv">TroubleLog</span> <span class="o">=</span> /opt/conquest-14-19b/logs/pacstrouble.log
+<span class="nv">UserLog</span> <span class="o">=</span> /opt/conquest-14-19b/logs/pacsuser.log
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>vim /var/www/cgi-bin/dicom.ini
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="o">[</span>sscscp<span class="o">]</span>
+<span class="nv">MicroPACS</span>                <span class="o">=</span> sscscp
+
+<span class="c1"># database layout (copy dicom.sql to the web server script directory or point to the one in your dicom server directory)</span>
+
+<span class="nv">kFactorFile</span>              <span class="o">=</span> /opt/conquest-14-19b/dicom.sql
+
+<span class="c1"># gives access to the SQL server of the DICOM server</span>
+<span class="c1"># use of independent database is also allowed (depends on scripts used)</span>
+
+<span class="nv">SQLHost</span>                  <span class="o">=</span> localhost
+<span class="nv">SQLServer</span>                <span class="o">=</span> conquest
+<span class="nv">Username</span>                 <span class="o">=</span> conquest
+<span class="nv">Password</span>                 <span class="o">=</span> xxxxxxxxx
+<span class="nv">PostGres</span>                 <span class="o">=</span> <span class="m">1</span>
+<span class="nv">MySQL</span>                    <span class="o">=</span> <span class="m">0</span>
+<span class="nv">SQLite</span>                   <span class="o">=</span> <span class="m">0</span>
+<span class="nv">DoubleBackSlashToDB</span>      <span class="o">=</span> <span class="m">1</span>
+<span class="nv">UseEscapeStringConstants</span> <span class="o">=</span> <span class="m">1</span>
+
+<span class="c1"># gives access to all DICOM servers known in acrnema.map</span>
+
+<span class="nv">ACRNemaMap</span>               <span class="o">=</span> /opt/conquest-14-19b/acrnema.map
+<span class="nv">Dictionary</span>               <span class="o">=</span> /opt/conquest-14-19b/dgate.dic
+<span class="nv">SOPClassList</span>             <span class="o">=</span> /opt/conquest-14-19b/dgatesop.lst
+
+<span class="c1"># default IP address and port of DICOM server (may be non-local, web pages empty if wrong)</span>
+
+<span class="nv">WebServerFor</span>             <span class="o">=</span> <span class="m">127</span>.0.0.1
+<span class="nv">TCPPort</span>                  <span class="o">=</span> <span class="m">5678</span>
+
+<span class="c1"># AE title: only used if web client originates queries or moves</span>
+
+<span class="nv">MyACRNema</span>                <span class="o">=</span> NNNNNNNN
+
+<span class="c1"># path to script engine: ocx will not download images if wrong - shows as black square with controls</span>
+
+<span class="nv">WebScriptAddress</span>         <span class="o">=</span> http://127.0.0.1/cgi-bin/dgate
+
+<span class="c1"># if set to 1 (default), the web user cannot edit databases and (in future) other things</span>
+<span class="c1"># webpush enables push of data to other servers</span>
+
+<span class="nv">WebReadonly</span>              <span class="o">=</span> <span class="m">0</span>
+<span class="nv">WebPush</span>                  <span class="o">=</span> <span class="m">1</span>
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>vim /var/www/cgi-bin/newweb/dicom.ini
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="o">[</span>sscscp<span class="o">]</span>
+<span class="nv">MicroPACS</span>                <span class="o">=</span> sscscp
+<span class="nv">ACRNemaMap</span>               <span class="o">=</span> acrnema.map
+<span class="nv">Dictionary</span>               <span class="o">=</span> dgate.dic
+<span class="nv">WebServerFor</span>             <span class="o">=</span> <span class="m">127</span>.0.0.1
+<span class="nv">TCPPort</span>                  <span class="o">=</span> <span class="m">5678</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="edit-acrnema-map">
+<h3>Edit acrnema.map<a class="headerlink" href="#edit-acrnema-map" title="Permalink to this headline">¶</a></h3>
+<p>For <code class="docutils literal notranslate"><span class="pre">acrnema.map</span></code>, every files are identical in the content and should contain the correct AE name i.e. NNNNNNNN</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>NNNNNNNN                <span class="m">127</span>.0.0.1       <span class="m">5678</span>            un
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="running-the-dicom-server">
+<h2>Running the DICOM server<a class="headerlink" href="#running-the-dicom-server" title="Permalink to this headline">¶</a></h2>
+<p>Upon completion of the installation which includes compilation and settings, the database will need to be initialized for the DICOM server.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>/opt/conquest-14-19b/dgate -v -r
+</pre></div>
+</div>
+<p>Create init script for dgate service</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>vim /lib/systemd/system/dgate.service
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="o">[</span>Unit<span class="o">]</span>
+<span class="nv">Description</span><span class="o">=</span>Conquest DICOM Server dgate
+<span class="nv">Documentation</span><span class="o">=</span>https://ingenium.home.xs4all.nl/dicom.htm
+<span class="nv">After</span><span class="o">=</span>syslog.target
+<span class="nv">After</span><span class="o">=</span>network.target
+
+<span class="o">[</span>Service<span class="o">]</span>
+<span class="nv">Type</span><span class="o">=</span>simple
+
+<span class="nv">User</span><span class="o">=</span>conquest
+<span class="nv">Group</span><span class="o">=</span>conquest
+
+<span class="nv">ExecStart</span><span class="o">=</span>/opt/conquest-14-19b/dgate -v -L/opt/conquest-14-19b/logs/serverstatus.log
+
+<span class="o">[</span>Install<span class="o">]</span>
+<span class="nv">WantedBy</span><span class="o">=</span>multi-user.target
+</pre></div>
+</div>
+<p>Enable and start the service</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>systemctl <span class="nb">enable</span> dgate.service
+systemctl start dgate.service
+systemctl status dgate.service
+</pre></div>
+</div>
+<p>Now DICOM server is online and ready to receive connection. Set SELinux to Permissive before testing the web service.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>vim /etc/selinux/config
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">SELINUX</span><span class="o">=</span>permissive
+<span class="nv">SELINUXTYPE</span><span class="o">=</span>targeted
+</pre></div>
+</div>
+<p>Open the web service with any browser e.g. links to localhost</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>links http://127.0.0.1/cgi-bin/dgate?mode<span class="o">=</span>top
+links http://127.0.0.1/cgi-bin/newweb/dgate
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">PACS Conquest</a><ul>
+<li><a class="reference internal" href="#configurations-for-dicom-server">Configurations for DICOM server</a></li>
+<li><a class="reference internal" href="#database">Database</a></li>
+<li><a class="reference internal" href="#web-server">Web Server</a></li>
+<li><a class="reference internal" href="#compiling-the-dicom-server">Compiling the DICOM server</a></li>
+<li><a class="reference internal" href="#setting-the-dicom-server">Setting the DICOM server</a><ul>
+<li><a class="reference internal" href="#edit-dicom-ini">Edit dicom.ini</a></li>
+<li><a class="reference internal" href="#edit-acrnema-map">Edit acrnema.map</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#running-the-dicom-server">Running the DICOM server</a></li>
+</ul>
+</li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="trl1.html" title="previous chapter">OpenClinica</a></li>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/trl2.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018, Wahyu Wijaya Hadiwikarta.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.7.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="_sources/trl2.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
