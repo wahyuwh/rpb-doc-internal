@@ -34,7 +34,7 @@ Edit ``postgresql.conf``
 
 .. code-block:: bash
 
-  listen addresses = '*'
+  listen addresses = 'localhost'
   port = 5432
 
 Enable init script

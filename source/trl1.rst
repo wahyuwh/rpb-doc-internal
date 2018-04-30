@@ -159,7 +159,7 @@ Edit ``postgresql.conf``
 
 .. code-block:: bash
 
-  listen addresses = '*'
+  listen addresses = 'localhost'
   port = 5432
 
 Create symlink to ``/opt/PostgreSQL``
